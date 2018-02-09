@@ -1,0 +1,1 @@
+var postperpage=7;var numshowpage=4;var upPageWord ='Prev';var downPageWord ='Next';var urlactivepage=location.href;var home_page="/";
