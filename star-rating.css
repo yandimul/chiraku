@@ -1,0 +1,26 @@
+.star-review-container {
+  margin: 10px 0 20px;
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 8px;
+  border: 1px solid #eee;
+  font-family: inherit;
+}
+.star-rating {
+  display: inline-block;
+  unicode-bidi: bidi-override;
+  direction: rtl;
+  font-size: 1.8em;
+  cursor: pointer;
+}
+.star {
+  color: #ccc;
+  transition: color 0.2s;
+}
+.star.selected {
+  color: #f5b301;
+}
+.rating-text {
+  margin-top: 5px;
+  font-size: 0.95em;
+}
