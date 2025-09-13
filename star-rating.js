@@ -10,8 +10,6 @@ const firebaseConfig = {
   measurementId: "G-ZGMZ3Z1TEW"
 };
 
-
-// Inisialisasi Firebase
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
@@ -22,43 +20,49 @@ document.addEventListener("DOMContentLoaded", function () {
     const stars = container.querySelectorAll(".star");
     const ratingDisplay = container.querySelector(".rating-value");
     const postId = container.getAttribute("data-post-id");
-    let currentRating = 0;
+    let userRated = false;
 
-    // Ambil rating dari Firebase saat halaman dimuat
-    db.ref("ratings/" + postId).once("value")
-      .then(snapshot => {
-        if (snapshot.exists()) {
-          currentRating = snapshot.val().rating;
-          ratingDisplay.textContent = currentRating;
-          highlightStars(currentRating);
+    // Ambil semua votes dari Firebase
+    db.ref("ratings/" + postId + "/votes").on("value", snapshot => {
+      const votes = snapshot.val() || {};
+      const totalVotes = Object.values(votes);
+      const count = totalVotes.length;
+      const average = count > 0
+        ? (totalVotes.reduce((a, b) => a + b, 0) / count).toFixed(1)
+        : 0;
+      ratingDisplay.textContent = `${average} (${count} vote${count > 1 ? 's' : ''})`;
+      highlightStars(Math.round(average));
+    });
+
+    // Event klik bintang
+    stars.forEach(star => {
+      star.addEventListener("mouseover", function () {
+        if (!userRated) {
+          highlightStars(parseInt(this.getAttribute("data-value")));
         }
       });
 
-    stars.forEach(star => {
-      star.addEventListener("mouseover", function () {
-        highlightStars(parseInt(this.getAttribute("data-value")));
-      });
-
       star.addEventListener("mouseout", function () {
-        highlightStars(currentRating);
+        if (!userRated) {
+          highlightStars(0);
+        }
       });
 
       star.addEventListener("click", function () {
-        currentRating = parseInt(this.getAttribute("data-value"));
-        ratingDisplay.textContent = currentRating;
-        highlightStars(currentRating);
-        db.ref("ratings/" + postId).set({ rating: currentRating });
+        if (userRated) return;
+
+        const selectedRating = parseInt(this.getAttribute("data-value"));
+        const newVoteRef = db.ref("ratings/" + postId + "/votes").push();
+        newVoteRef.set(selectedRating);
+        userRated = true;
+        highlightStars(selectedRating);
       });
     });
 
     function highlightStars(rating) {
       stars.forEach(star => {
         const val = parseInt(star.getAttribute("data-value"));
-        if (val <= rating) {
-          star.classList.add("selected");
-        } else {
-          star.classList.remove("selected");
-        }
+        star.classList.toggle("selected", val <= rating);
       });
     }
   });
