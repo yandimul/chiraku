@@ -1,83 +1,79 @@
-// GANTI KONFIGURASI FIREBASE DENGAN MILIKMU
-const firebaseConfig = {
-  apiKey: "AIzaSyBmDLyL3J2bD05r8hF5OsU5b3W7H0ARfuM",
-  authDomain: "star-rating-dfba8.firebaseapp.com",
-  databaseURL: "https://star-rating-dfba8-default-rtdb.firebaseio.com/",
-  projectId: "star-rating-dfba8",
-  storageBucket: "star-rating-dfba8.firebasestorage.app",
-  messagingSenderId: "198027457313",
-  appId: "1:198027457313:web:9c073a303357d392784460",
-};
-
-document.addEventListener("DOMContentLoaded", function () {
-  console.log("DOM loaded, initializing star rating...");
-
-  // Pastikan Firebase sudah diinisialisasi sebelumnya
-
-  const containers = document.querySelectorAll(".star-review-container");
-  console.log("Found containers:", containers.length);
-
-  containers.forEach(container => {
-    const postId = container.getAttribute("data-post-id");
-    console.log("Container postId:", postId);
-
-    if (!postId) {
-      console.warn("postId missing, skipping container");
+(function () {
+  // Delay init sampai semua script termuat
+  function initStarRating() {
+    if (!window.firebase || !firebase.database) {
+      console.warn('[StarRating] Firebase belum siap, retrying...');
+      setTimeout(initStarRating, 500);
       return;
     }
 
-    const stars = container.querySelectorAll(".star");
-    const ratingDisplay = container.querySelector(".rating-value");
-
-    if (stars.length === 0 || !ratingDisplay) {
-      console.warn("stars or rating display missing, skipping this container");
+    const containers = document.querySelectorAll('.star-review-container');
+    if (!containers.length) {
+      console.warn('[StarRating] Tidak ditemukan .star-review-container');
       return;
     }
 
-    let userRated = false;
+    containers.forEach(container => {
+      const postId = container.getAttribute('data-post-id');
+      const stars = container.querySelectorAll('.star');
+      const ratingDisplay = container.querySelector('.rating-value');
 
-    // Ambil data votes
-    firebase.database().ref("ratings/" + postId + "/votes").on("value", snapshot => {
-      const votesObj = snapshot.val() || {};
-      const votesArr = Object.values(votesObj);
-      const count = votesArr.length;
-      const sum = votesArr.reduce((acc, val) => acc + val, 0);
-      const avg = count > 0 ? (sum / count).toFixed(1) : "0";
-      ratingDisplay.textContent = `${avg} (${count} vote${count > 1 ? 's' : ''})`;
-      highlight(Math.round(avg));
-    });
+      if (!postId || !stars.length || !ratingDisplay) {
+        console.warn('[StarRating] Element tidak lengkap untuk postId:', postId);
+        return;
+      }
 
-    stars.forEach(star => {
-      const val = parseInt(star.getAttribute("data-value"));
-      star.addEventListener("mouseover", function() {
-        if (!userRated) highlight(val);
-      });
-      star.addEventListener("mouseout", function() {
-        if (!userRated) highlight(0);
-      });
-      star.addEventListener("click", function() {
-        console.log("Star clicked:", val);
-        if (userRated) {
-          console.log("Already voted");
-          return;
-        }
-        userRated = true;
-        highlight(val);
-        firebase.database().ref("ratings/" + postId + "/votes").push().set(val)
-          .then(() => console.log("Vote saved:", val))
-          .catch(err => console.error("Error saving vote:", err));
-      });
-    });
+      let userRated = localStorage.getItem('voted_' + postId) === 'true';
 
-    function highlight(rating) {
+      // Ambil data rating dari Firebase
+      firebase.database().ref('ratings/' + postId + '/votes').on('value', snapshot => {
+        const votes = snapshot.val() || {};
+        const voteValues = Object.values(votes);
+        const total = voteValues.length;
+        const average = total ? (voteValues.reduce((a, b) => a + b, 0) / total).toFixed(1) : '0.0';
+
+        ratingDisplay.textContent = `${average} (${total} vote${total !== 1 ? 's' : ''})`;
+
+        if (!userRated) highlightStars(Math.round(average));
+      });
+
+      // Tambahkan interaksi ke setiap bintang
       stars.forEach(star => {
-        const val2 = parseInt(star.getAttribute("data-value"));
-        if (val2 <= rating) {
-          star.classList.add("selected");
-        } else {
-          star.classList.remove("selected");
-        }
+        const val = parseInt(star.dataset.value);
+
+        star.addEventListener('mouseover', () => {
+          if (!userRated) highlightStars(val);
+        });
+
+        star.addEventListener('mouseout', () => {
+          if (!userRated) highlightStars(0);
+        });
+
+        star.addEventListener('click', () => {
+          if (userRated) return;
+
+          userRated = true;
+          localStorage.setItem('voted_' + postId, 'true');
+
+          highlightStars(val);
+
+          // Simpan vote ke Firebase
+          firebase.database().ref('ratings/' + postId + '/votes').push().set(val)
+            .then(() => console.log('[StarRating] Vote saved:', val))
+            .catch(err => console.error('[StarRating] Error:', err));
+        });
       });
-    }
-  });
-});
+
+      function highlightStars(rating) {
+        stars.forEach(star => {
+          const starVal = parseInt(star.dataset.value);
+          star.classList.toggle('selected', starVal <= rating);
+        });
+      }
+    });
+  }
+
+  // Mulai setelah DOM dan window load
+  document.addEventListener('DOMContentLoaded', initStarRating);
+  window.addEventListener('load', initStarRating);
+})();
